@@ -1,15 +1,11 @@
 {
-  "name": "pm-analysis",
+  "name": "redmine-to-git",
   "version": "0.1.0",
   "description": "",
   "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
   "author": "",
-  "license": "ISC",
+  "license": "GPLv2",
   "dependencies": {
-    "express": "~3.4.8",
     "qs": "~0.6.6",
     "moment-range": "~1.0.0"
   },
