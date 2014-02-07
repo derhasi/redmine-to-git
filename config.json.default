@@ -1,5 +1,6 @@
 {
   "host": "example.com",
   "port": 80,
-  "key": "1234567890abcdef"
+  "key": "1234567890abcdef",
+  "project": "test-project"
 }
