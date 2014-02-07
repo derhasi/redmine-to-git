@@ -1,5 +1,5 @@
 var redmine = require('./lib/redmine');
-var redmineIssue = require('./lib/redmine-issue');
+var redmineWikiIndex = require('./lib/redmine-wiki-index');
 var config = require('./config.json');
 var momentRange = require('moment-range');
 
