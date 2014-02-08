@@ -1,7 +1,9 @@
 var redmine = require('./lib/redmine');
 var redmineWikiIndex = require('./lib/redmine-wiki-index');
 var config = require('./config.json');
-var momentRange = require('moment-range');
+
+// We change the working directory to the repo path.
+process.chdir(config.path);
 
 var r = new redmine(config.host, config.port, config.key);
 

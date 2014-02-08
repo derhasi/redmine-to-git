@@ -2,5 +2,6 @@
   "host": "example.com",
   "port": 80,
   "key": "1234567890abcdef",
-  "project": "test-project"
+  "project": "test-project",
+  "path": "~/r2g-test"
 }
