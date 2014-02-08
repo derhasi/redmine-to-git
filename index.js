@@ -8,6 +8,15 @@ var config = require('./config.json');
 // We change the working directory to the repo path.
 process.chdir(config.path);
 
+// We grab the old index information to compare the page versions with the
+// current one, and only commit new versions to avoid duplicate commits.
+var oldIndex = require(config.path + '/index.json');
+var oldVersions = {};
+for (var cI in oldIndex) {
+  var ind = oldIndex[cI];
+  oldVersions[ind.title] = ind.version;
+}
+
 var gitC = new gitCommiter();
 
 /**
@@ -39,6 +48,18 @@ var rWI = redmineWikiIndex.load(r, config.project, function(err, index) {
 
     commitAllPages(function(err, output) {
       console.log('Finish', err, output);
+
+      var currentIndex = JSON.stringify(index.index);
+      // We skip commiting the index, if it is still the same.
+      if (currentIndex == JSON.stringify(oldIndex)) {
+        console.log('Index is still the same.');
+        return;
+      }
+
+      // At the end we store the current index to index.json.
+      gitC.commitFile('index.json', currentIndex, 'Updated index', undefined, undefined, function(err) {
+        console.log('New index saved', err);
+      });
     })
 
   });
@@ -58,6 +79,14 @@ function commitAllPages(callback) {
   }
 
   var page = allPages.shift();
+
+  // Check if the page is already in the index.
+  if (oldVersions[page.title] != undefined && oldVersions[page.title] >= page.version) {
+    console.log('Skipped ', page.title, ' version: ', page.version);
+    // If the page is already there, we continue with the next item.
+    commitAllPages(callback);
+    return;
+  }
 
   var message = '';
   if (page.version == 1) {
