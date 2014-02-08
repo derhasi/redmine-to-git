@@ -1,8 +1,10 @@
+var fs = require('fs');
 var redmine = require('./lib/redmine');
 var redmineWikiIndex = require('./lib/redmine-wiki-index');
 var redmineUser = require('./lib/redmine-user');
 var gitCommiter = require('./lib/git-commiter');
 
+// Load config from file.
 var config = require('./config.json');
 
 // We change the working directory to the repo path.
@@ -10,7 +12,11 @@ process.chdir(config.path);
 
 // We grab the old index information to compare the page versions with the
 // current one, and only commit new versions to avoid duplicate commits.
-var oldIndex = require(config.path + '/index.json');
+var oldIndex = [];
+if (fs.existsSync(config.path + '/index.json')) {
+  oldIndex = require(config.path + '/index.json');
+}
+
 var oldVersions = {};
 for (var cI in oldIndex) {
   var ind = oldIndex[cI];
@@ -48,6 +54,11 @@ var rWI = redmineWikiIndex.load(r, config.project, function(err, index) {
 
     commitAllPages(function(err, output) {
       console.log('Finish', err, output);
+
+      // Do nothing if we finished with error.
+      if (err) {
+        return;
+      }
 
       var currentIndex = JSON.stringify(index.index);
       // We skip commiting the index, if it is still the same.
