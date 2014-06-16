@@ -12,7 +12,7 @@ for fetching data from a specific project and push that to a git repository.
 
 Currently the command is ...
 
-`php script.php --redmine=https://yourredmineurl.com --apikey=YOURSECRETAPIKEY
+`php script.php --redmine=https://yourredmineurl.com --apikey=YOURSECRETAPIKEY`
 
 ## @todo
 
