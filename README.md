@@ -5,18 +5,18 @@ for fetching data from a specific project and push that to a git repository.
 
 ## Installation
 
-* First install all npm packages: `npm install`
-* Create config.json
-  (e.g. by copying config.json.default: `cp config.json.default config.json`)
-* Update config.json with specific data.
-* Make sure the `path` specified is a valid git repository.
+* Install [composer](https://getcomposer.org/)
+* Run `composer install` in this directory
 
 ## Usage
 
-Currently the command is simply executed with `node index.js`
+Currently the command is ...
+
+`php script.php --redmine=https://yourredmineurl.com --apikey=YOURSECRETAPIKEY
 
 ## @todo
 
+* Reimplement with PHP
 * Document code!!
 * Command line options for data in config.json
 * Creation and/or clone of a git repo

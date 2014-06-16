@@ -15,3 +15,7 @@ Thumbs.db
 node_modules
 
 /config.json
+
+# Remove composer vendors: they should be installed via composer and not checked
+# in to the repo, see README
+/vendor
