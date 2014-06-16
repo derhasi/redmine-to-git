@@ -6,8 +6,9 @@ require_once 'vendor/autoload.php';
 // Get options from the command line.
 $shortopts  = "";
 $longopts  = array(
-  "redmine:",     // Required value
-  "apikey:",    // Optional value
+  "redmine:",
+  "apikey:",
+  "project:",
 );
 $options = getopt($shortopts, $longopts);
 
@@ -20,11 +21,56 @@ if (empty($options['redmine'])) {
 if (empty($options['apikey'])) {
   throw new ErrorException('No apikey given');
 }
+// Throw error if we got not redmine url.
+if (empty($options['project'])) {
+  throw new ErrorException('No project given');
+}
 
-
+$project = $options['project'];
 
 $client = new Redmine\Client($options['redmine'], $options['apikey']);
 
-$all_users = $client->api('user')->all();
-//$client->api('user')->listing();
-print_r($all_users);
+$wiki_pages = $client->api('wiki')->all($project);
+
+if (empty($wiki_pages['wiki_pages'])) {
+  print 'There are no wiki pages in the project.';
+  exit;
+}
+
+$versions = array();
+// Temp array to collect user information.
+$users = array();
+
+foreach ($wiki_pages['wiki_pages'] as $pid => $page) {
+
+  $current_version = $page['version'];
+  $version = $current_version;
+  for ($version = $current_version; $version > 0; $version--) {
+    print $page['title'] . $version;
+    print "\n";
+
+    $full_page = $client->api('wiki')->show($project, $page['title'], $version);
+    // When we got a valid wiki page, we add it to the versions array, keyed by
+    // date.
+    if (isset($full_page['wiki_page']) && $full_page['wiki_page']['version'] == $version) {
+      $key = $full_page['wiki_page']['updated_on'] . '--' . $pid . '--' . $version;
+      $versions[$key] = $full_page['wiki_page'];
+
+      // Get the full author object.
+      $uid = $full_page['wiki_page']['author']['id'];
+      if (!isset($users[$uid])) {
+        $user = $client->api('user')->show($uid);
+        if (!empty($user['user'])) {
+          $users[$uid] = $user['user'];
+        }
+      }
+    }
+  }
+}
+
+// Sort versions by update date, as this is the key.
+ksort($versions);
+
+// And now there is the git part.
+
+//print_r($all_users);
