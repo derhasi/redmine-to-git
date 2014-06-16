@@ -9,6 +9,7 @@ $longopts  = array(
   "redmine:",
   "apikey:",
   "project:",
+  "repo:",
 );
 $options = getopt($shortopts, $longopts);
 
@@ -24,6 +25,24 @@ if (empty($options['apikey'])) {
 // Throw error if we got not redmine url.
 if (empty($options['project'])) {
   throw new ErrorException('No project given');
+}
+// Throw error if we got no repository.
+if (empty($options['repo'])) {
+  throw new ErrorException('No repo given');
+}
+
+// Init repo.
+$git = new PHPGit\Git();
+$git->setRepository($options['repo']);
+
+// Validate repo, by checking status.
+try {
+  $git->status();
+}
+// When there is a git excpetion we are likely to have no repo there.
+catch (PHPGit\Exception\GitException $e) {
+  echo "{$options['repo']} is no valid git repo.";
+  exit;
 }
 
 $project = $options['project'];
