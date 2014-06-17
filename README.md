@@ -12,11 +12,12 @@ for fetching data from a specific project and push that to a git repository.
 
 Currently the command is ...
 
-`php script.php --redmine=https://yourredmineurl.com --apikey=YOURSECRETAPIKEY--project=PROJECTNAME`
+`php redmine-to-git.php wiki redmine apikey project repo`
 
 * **redmine**: URL of your Redmine installation
 * **apikey**: API Key for accessing the redmine API
 * **project**: Machine  name of the Project to grab the wiki from
+* **repo**: path to git working directory
 
 ## @todo
 
