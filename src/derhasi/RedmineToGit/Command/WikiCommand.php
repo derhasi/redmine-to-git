@@ -2,6 +2,8 @@
 
 namespace derhasi\RedmineToGit\Command;
 
+use derhasi\RedmineToGit\WikiIndex;
+use derhasi\RedmineToGit\WikiPageVersion;
 use \Symfony\Component\Console\Command\Command;
 use \Symfony\Component\Console\Input\InputArgument;
 use \Symfony\Component\Console\Input\InputInterface;
@@ -30,7 +32,7 @@ class WikiCommand extends Command
   var $repo;
 
   /**
-   * @var \PHPGit\Git;
+   * @var \PHPGit\Git
    */
   var $git;
 
@@ -177,7 +179,7 @@ class WikiCommand extends Command
         // date.
         if (isset($full_page['wiki_page']) && $full_page['wiki_page']['version'] == $version) {
           $key = $full_page['wiki_page']['updated_on'] . '--' . $pid . '--' . $version;
-          $this->wikiVersions[$key] = $full_page['wiki_page'];
+          $this->wikiVersions[$key] = new WikiPageVersion($full_page['wiki_page']);
 
           // Get the full author object.
           $uid = $full_page['wiki_page']['author']['id'];
@@ -214,46 +216,36 @@ class WikiCommand extends Command
     // @todo: only process newer versions (compare with currently stored index)
 
     foreach ($this->wikiVersions as $vid => $version) {
+      // @todo: update index on each commit.
 
       // Add / update file in working directory
-      $filename = $version['title'] . '.textile';
-      $filepath = $this->repo . '/' . $version['title'] . '.textile';
-      file_put_contents($filepath, $version['text']);
+      $filename = $version->title . '.textile';
+      $filepath = $this->repo . '/' . $version->title . '.textile';
+      file_put_contents($filepath, $version->text);
 
       // Add commit message with author information and correct date
       $this->git->add($filename);
 
-      // @todo: update index on each commit.
 
       // Build commit message.
-      if ($version['version'] == 1) {
-        $message = "Created page {$version['title']} by {$version['author']['name']}";
+      if ($version->version == 1) {
+        $message = "Created page {$version->title} by {$version->author['name']}";
       }
       else {
-        $message = "Updated page {$version['title']} by {$version['author']['name']}";
+        $message = "Updated page {$version->title} by {$version->author['name']}";
       }
 
-      $author_id = $version['author']['id'];
+      $author_id = $version->author['id'];
       if ($this->wikiUsers[$author_id]) {
-        $author = $version['author']['name'] . ' <' . $this->wikiUsers[$author_id]['mail'] . '>';
+        $author = $version->author['name'] . ' <' . $this->wikiUsers[$author_id]['mail'] . '>';
       }
       else {
-        $author = $version['author']['name'];
+        $author = $version->author['name'];
       }
 
       // @todo: check status before committing, to avoid empty commits.
-
       $this->git->commit($message, array(
         'author' => $author,
-        'date' => $version['updated_on'],
-      ));
-
-      // Write status.
-      $output->writeln("<comment>$message</comment>");
-
-      // @todo: handling comments?
-
-    }
 
     // Add the index.json as reference.
     $index = json_encode($this->wikiPages, JSON_PRETTY_PRINT);
