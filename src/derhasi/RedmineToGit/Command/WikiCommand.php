@@ -15,6 +15,41 @@ class WikiCommand extends Command
 {
 
   /**
+   * @var \Redmine\Client
+   */
+  var $redmineClient;
+
+  /**
+   * @var string
+   */
+  var $project;
+
+  /**
+   * @var string
+   */
+  var $repo;
+
+  /**
+   * @var \PHPGit\Git;
+   */
+  var $git;
+
+  /**
+   * @var array
+   */
+  var $wikiPages = array();
+
+  /**
+   * @var array
+   */
+  var $wikiVersions = array();
+
+  /**
+   * @var array
+   */
+  var $wikiUsers = array();
+
+  /**
    * {@inheritdoc}
    */
   protected function configure()
@@ -53,68 +88,133 @@ class WikiCommand extends Command
     // Get our necessary arguments from the input.
     $redmine = $input->getArgument('redmine');
     $apikey = $input->getArgument('apikey');
-    $project = $input->getArgument('project');
-    $repo = $input->getArgument('repo');
+    $this->project = $input->getArgument('project');
+    $this->repo = $input->getArgument('repo');
+
+    // Init redmine client and get wiki pages information.
+    $this->redmineClient = new \Redmine\Client($redmine, $apikey);
+
+    $success = $this->initGit($input, $output);
+    if ($success === FALSE) return;
+
+    $success = $this->buildWikiPages($input, $output);
+    if ($success === FALSE) return;
+
+    $this->buildWikiVersions($input, $output);
+
+    // And now there is the git part.
+    $this->updateGitRepo($input, $output);
+  }
 
 
+  /**
+   * Helper to initialie the repo.
+   *
+   * @param InputInterface $input
+   * @param OutputInterface $output
+   *
+   * @return bool
+   */
+  protected function initGit(InputInterface $input, OutputInterface $output) {
     // Init repo.
     $git = new \PHPGit\Git();
-    $git->setRepository($repo);
+    $git->setRepository($this->repo);
 
     // Validate repo, by checking status.
     try {
       $git->status();
     }
-    // When there is a git excpetion we are likely to have no repo there.
+      // When there is a git excpetion we are likely to have no repo there.
     catch (\PHPGit\Exception\GitException $e) {
-      $output->writeln("<error>{$repo} is no valid git repo.</error>");
-      return;
+      $output->writeln("<error>{$this->repo} is no valid git repo.</error>");
+      return FALSE;
     }
+  }
 
-    // Init redmine client and get wiki pages information.
-    $client = new \Redmine\Client($redmine, $apikey);
-    $wiki_pages = $client->api('wiki')->all($project);
+  /**
+   * Helper to build wiki pages array.
+   *
+   * @param InputInterface $input
+   * @param OutputInterface $output
+   *
+   * @return bool
+   */
+  protected function buildWikiPages(InputInterface $input, OutputInterface $output) {
+    $wiki_pages = $this->redmineClient->api('wiki')->all($this->project);
 
     if (empty($wiki_pages['wiki_pages'])) {
       $output->writeln('<info>There are no wiki pages in the project.</info>');
-      return;
+      return FALSE;
     }
+    else {
+      $this->wikiPages = $wiki_pages['wiki_pages'];
+    }
+  }
 
-    $versions = array();
-    // Temp array to collect user information.
-    $users = array();
+  /**
+   * Helper to fill the wiki versions array.
+   *
+   * @param InputInterface $input
+   * @param OutputInterface $output
+   */
+  protected function buildWikiVersions(InputInterface $input, OutputInterface $output) {
 
-    foreach ($wiki_pages['wiki_pages'] as $pid => $page) {
+    $this->wikiVersions = array();
+
+    // Show a progress bar for featching wiki page information.
+    print $output->writeln('<info>Fetching wiki page information from API ...</info>');
+    $progress = $this->getHelperSet()->get('progress');
+    $progress->start($output, count($this->wikiPages));
+
+    foreach ($this->wikiPages as $pid => $page) {
 
       $current_version = $page['version'];
       for ($version = $current_version; $version > 0; $version--) {
-        print $output->writeln($page['title'] . $version);
 
-        $full_page = $client->api('wiki')->show($project, $page['title'], $version);
+        $full_page = $this->redmineClient->api('wiki')->show($this->project, $page['title'], $version);
         // When we got a valid wiki page, we add it to the versions array, keyed by
         // date.
         if (isset($full_page['wiki_page']) && $full_page['wiki_page']['version'] == $version) {
           $key = $full_page['wiki_page']['updated_on'] . '--' . $pid . '--' . $version;
-          $versions[$key] = $full_page['wiki_page'];
+          $this->wikiVersions[$key] = $full_page['wiki_page'];
 
           // Get the full author object.
           $uid = $full_page['wiki_page']['author']['id'];
-          if (!isset($users[$uid])) {
-            $user = $client->api('user')->show($uid);
+          if (!isset($this->wikiUsers[$uid])) {
+            $user = $this->redmineClient->api('user')->show($uid);
             if (!empty($user['user'])) {
-              $users[$uid] = $user['user'];
+              $this->wikiUsers[$uid] = $user['user'];
             }
           }
         }
       }
+
+      // advances the progress bar 1 unit
+      $progress->advance();
     }
 
     // Sort versions by update date, as this is the key.
-    ksort($versions);
+    ksort($this->wikiVersions);
 
-    // And now there is the git part.
+    $progress->finish();
+  }
 
-    //print_r($all_users);
+  /**
+   * Helper to write the version information to the git repo.
+   *
+   * @param InputInterface $input
+   * @param OutputInterface $output
+   */
+  protected function updateGitRepo(InputInterface $input, OutputInterface $output) {
+
+    foreach ($this->wikiVersions as $vid => $version) {
+
+      // @todo: Add / update file in working directory
+      // @todo: Add commit message with author information and correct date
+      // @todo: handling comments?
+
+    }
 
   }
+
 }
