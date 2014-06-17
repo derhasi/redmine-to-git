@@ -1,5 +1,19 @@
 {
+  "name": "derhasi/redmine-to-git",
+  "description": "Push redmine data to a git repositry",
+  "keywords": ["redmine"],
+  "homepage": "http://github.com/derhasi/redmine-to-git",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Johannes Haseitl",
+      "email": "johannes@undpaul.de",
+      "homepage": "http://undpaul.de",
+      "role": "Developer"
+    }
+  ],
   "require": {
+    "php": ">=5.4.0",
     "kbsali/redmine-api": "1.3.*",
     "kzykhys/git": "0.1.*",
     "symfony/console": "2.5.*"
