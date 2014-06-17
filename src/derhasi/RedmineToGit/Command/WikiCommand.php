@@ -67,7 +67,7 @@ class WikiCommand extends Command
     }
     // When there is a git excpetion we are likely to have no repo there.
     catch (\PHPGit\Exception\GitException $e) {
-      $output->writeln("{$repo} is no valid git repo.");
+      $output->writeln("<error>{$repo} is no valid git repo.</error>");
       return;
     }
 
@@ -76,7 +76,7 @@ class WikiCommand extends Command
     $wiki_pages = $client->api('wiki')->all($project);
 
     if (empty($wiki_pages['wiki_pages'])) {
-      $output->writeln('There are no wiki pages in the project.');
+      $output->writeln('<info>There are no wiki pages in the project.</info>');
       return;
     }
 
