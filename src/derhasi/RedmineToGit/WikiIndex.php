@@ -10,6 +10,11 @@ namespace derhasi\RedmineToGit;
 class WikiIndex {
 
   /**
+   * @var Project
+   */
+  var $project;
+
+  /**
    * @var array
    */
   protected $original_data = array();
@@ -25,10 +30,17 @@ class WikiIndex {
    * @param array $data
    *   Array representing the index data as returned from the redmine API.
    */
-  public function __construct(array $data) {
+
+  /**
+   * @param Project $project
+   * @param array $data
+   */
+  public function __construct(Project $project, array $data) {
+
+    $this->project = $project;
 
     foreach ($data as $item) {
-      $page = new WikiPage($item);
+      $page = new WikiPage($project, $item);
       $this->original_data[$page->title] = $page;
       $this->data[$page->title] = clone $page;
     }
@@ -50,6 +62,20 @@ class WikiIndex {
   }
 
   /**
+   * Get the version ID of the given page in the given index.
+   *
+   * @param WikiPage $page
+   *
+   * @return int
+   */
+  public function getVersionID(WikiPage $page) {
+    if (isset($this->data[$page->title])) {
+      return $this->data[$page->title]->version;
+    }
+    return 0;
+  }
+
+  /**
    * Helper to sort data array by name.
    */
   protected function sort() {
@@ -59,11 +85,12 @@ class WikiIndex {
   /**
    * Load index object from file.
    *
+   * param Project $project
    * @param string $filepath
    *
    * @return WikiIndex
    */
-  public static function loadFromJSONFile($filepath) {
+  public static function loadFromJSONFile(Project $project, $filepath) {
     if (!file_exists($filepath)) {
       $data = array();
     }
@@ -72,7 +99,7 @@ class WikiIndex {
       $data = json_decode($str);
     }
 
-    return new WikiIndex($data);
+    return new WikiIndex($project, $data);
   }
 
   /**

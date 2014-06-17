@@ -2,8 +2,11 @@
 
 namespace derhasi\RedmineToGit\Command;
 
-use derhasi\RedmineToGit\WikiIndex;
-use derhasi\RedmineToGit\WikiPageVersion;
+use \derhasi\RedmineToGit\RedmineConnection;
+use \derhasi\RedmineToGit\Project;
+use \derhasi\RedmineToGit\WikiIndex;
+use \derhasi\RedmineToGit\WikiPage;
+use \derhasi\RedmineToGit\WikiPageVersion;
 use \Symfony\Component\Console\Command\Command;
 use \Symfony\Component\Console\Input\InputArgument;
 use \Symfony\Component\Console\Input\InputInterface;
@@ -17,12 +20,12 @@ class WikiCommand extends Command
 {
 
   /**
-   * @var \Redmine\Client
+   * @var \derhasi\RedmineToGit\RedmineConnection
    */
-  var $redmineClient;
+  var $redmine;
 
   /**
-   * @var string
+   * @var \derhasi\RedmineToGit\Project
    */
   var $project;
 
@@ -37,12 +40,12 @@ class WikiCommand extends Command
   var $git;
 
   /**
-   * @var \derhasi\RedmineToGit\WikiIndex
+   * @var WikiIndex
    */
   var $wikiIndex;
 
   /**
-   * @var array
+   * @var WikiPage[]
    */
   var $wikiPages = array();
 
@@ -50,11 +53,6 @@ class WikiCommand extends Command
    * @var array
    */
   var $wikiVersions = array();
-
-  /**
-   * @var array
-   */
-  var $wikiUsers = array();
 
   /**
    * {@inheritdoc}
@@ -95,18 +93,27 @@ class WikiCommand extends Command
     // Get our necessary arguments from the input.
     $redmine = $input->getArgument('redmine');
     $apikey = $input->getArgument('apikey');
-    $this->project = $input->getArgument('project');
+    $project = $input->getArgument('project');
     $this->repo = $input->getArgument('repo');
 
     // Init redmine client and get wiki pages information.
-    $this->redmineClient = new \Redmine\Client($redmine, $apikey);
+    $this->redmine = new RedmineConnection($redmine, $apikey);
+    $this->project = new Project($this->redmine, $project);
 
     $success = $this->initGit($input, $output);
     if ($success === FALSE) return;
 
-    $success = $this->buildWikiPages($input, $output);
-    if ($success === FALSE) return;
+    $this->wikiPages = $this->project->loadWikiPages();
+    if (empty($this->wikiPages)) {
+      $output->writeln('<info>There are no wiki pages in the project.</info>');
+      return;
+    }
 
+    // Get the wiki index status from the file stored in the repo.
+    $this->wikiIndex = WikiIndex::loadFromJSONFile($this->project, $this->repo . '/index.json');
+
+    // Calculating the wiki page, versions, that are needed to be added to the
+    // repo.
     $this->buildWikiVersions($input, $output);
 
     // And now there is the git part.
@@ -140,26 +147,6 @@ class WikiCommand extends Command
   }
 
   /**
-   * Helper to build wiki pages array.
-   *
-   * @param InputInterface $input
-   * @param OutputInterface $output
-   *
-   * @return bool
-   */
-  protected function buildWikiPages(InputInterface $input, OutputInterface $output) {
-    $wiki_pages = $this->redmineClient->api('wiki')->all($this->project);
-
-    if (empty($wiki_pages['wiki_pages'])) {
-      $output->writeln('<info>There are no wiki pages in the project.</info>');
-      return FALSE;
-    }
-    else {
-      $this->wikiPages = $wiki_pages['wiki_pages'];
-    }
-  }
-
-  /**
    * Helper to fill the wiki versions array.
    *
    * @param InputInterface $input
@@ -170,30 +157,21 @@ class WikiCommand extends Command
     $this->wikiVersions = array();
 
     // Show a progress bar for featching wiki page information.
-    print $output->writeln('<info>Fetching wiki page information from API ...</info>');
+    $output->writeln('<info>Fetching wiki page information from API ...</info>');
     $progress = $this->getHelperSet()->get('progress');
     $progress->start($output, count($this->wikiPages));
 
-    foreach ($this->wikiPages as $pid => $page) {
+    foreach ($this->wikiPages as $page) {
 
-      $current_version = $page['version'];
-      for ($version = $current_version; $version > 0; $version--) {
+      $current_version = $page->version;
+      $index_version = $this->wikiIndex->getVersionID($page);
 
-        $full_page = $this->redmineClient->api('wiki')->show($this->project, $page['title'], $version);
-        // When we got a valid wiki page, we add it to the versions array, keyed by
-        // date.
-        if (isset($full_page['wiki_page']) && $full_page['wiki_page']['version'] == $version) {
-          $key = $full_page['wiki_page']['updated_on'] . '--' . $pid . '--' . $version;
-          $this->wikiVersions[$key] = new WikiPageVersion($full_page['wiki_page']);
-
-          // Get the full author object.
-          $uid = $full_page['wiki_page']['author']['id'];
-          if (!isset($this->wikiUsers[$uid])) {
-            $user = $this->redmineClient->api('user')->show($uid);
-            if (!empty($user['user'])) {
-              $this->wikiUsers[$uid] = $user['user'];
-            }
-          }
+      // Skip page, if
+      if ($current_version > $index_version) {
+        $versions = $page->getVersions($index_version + 1, $current_version);
+        foreach ($versions as $version) {
+          $key = $version->updated_on . '-' . $version->title . '-' . $version->version;
+          $this->wikiVersions[$key] = $version;
         }
       }
 
@@ -220,8 +198,6 @@ class WikiCommand extends Command
     // @todo: option to stash current repo changes?
     // @todo: only process newer versions (compare with currently stored index)
 
-    $this->wikiIndex = WikiIndex::loadFromJSONFile($this->repo . '/index.json');
-
     foreach ($this->wikiVersions as $version) {
 
       // Add / update file in working directory
@@ -245,17 +221,10 @@ class WikiCommand extends Command
         $message = "Updated page {$version->title} by {$version->author['name']}";
       }
 
-      $author_id = $version->author['id'];
-      if ($this->wikiUsers[$author_id]) {
-        $author = $version->author['name'] . ' <' . $this->wikiUsers[$author_id]['mail'] . '>';
-      }
-      else {
-        $author = $version->author['name'];
-      }
 
       // @todo: check status before committing, to avoid empty commits.
       $this->git->commit($message, array(
-        'author' => $author,
+        'author' => $version->author->getGitAuthorName(),
         'date' => $version->updated_on,
       ));
 

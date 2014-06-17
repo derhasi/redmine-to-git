@@ -5,6 +5,11 @@ namespace derhasi\RedmineToGit;
 class WikiPage {
 
   /**
+   * @var Project
+   */
+  var $project;
+
+  /**
    * @var string
    */
   var $title;
@@ -34,7 +39,9 @@ class WikiPage {
    *
    * @param array|object $data
    */
-  public function __construct($data) {
+  public function __construct(Project $project, $data) {
+
+    $this->project = $project;
 
     if (is_array($data)) {
       $data = (object) $data;
@@ -47,6 +54,49 @@ class WikiPage {
 
     if (isset($data->parent)) {
       $this->parent = (object) $data->parent;
+    }
+  }
+
+
+  /**
+   * Load a range of versions from the page.
+   *
+   * @param $from
+   * @param $to
+   *
+   * @return WikiPageVersion[]
+   */
+  public function getVersions($from, $to) {
+
+    $versions = array();
+    for ($i = $from; $i <= $to; $i++) {
+
+      $version = $this->loadVersion($i);
+      if ($version) {
+        $versions[$i] = $version;
+      }
+    }
+    return $versions;
+  }
+
+  /**
+   * Load version object from a given page.
+   *
+   * @param WikiPage $page
+   * @param $version_id
+   *
+   * @return WikiPageVersion
+   */
+  public function loadVersion($version_id) {
+    $version = $this
+      ->project
+      ->redmine
+      ->client
+      ->api('wiki')
+      ->show($this->project->project, $this->title, $version_id);
+
+    if (isset($version['wiki_page']) && $version['wiki_page']['version'] == $version_id) {
+      return new WikiPageVersion($this->project, $version['wiki_page']);
     }
   }
 }

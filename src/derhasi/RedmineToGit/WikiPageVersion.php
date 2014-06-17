@@ -5,6 +5,11 @@ namespace derhasi\RedmineToGit;
 class WikiPageVersion {
 
   /**
+   * @var Project
+   */
+  var $project;
+
+  /**
    * @var string
    */
   var $title;
@@ -35,7 +40,7 @@ class WikiPageVersion {
   var $text;
 
   /**
-   * @var array
+   * @var User
    */
   var $author;
 
@@ -47,9 +52,12 @@ class WikiPageVersion {
   /**
    * Constructor for the WikiPage object.
    *
+   * @param Project $project
    * @param array|object $data
    */
-  public function __construct($data) {
+  public function __construct(Project $project, $data) {
+
+    $this->project = $project;
 
     if (is_array($data)) {
       $data = (object) $data;
@@ -59,9 +67,11 @@ class WikiPageVersion {
     $this->version = $data->version;
     $this->created_on = $data->created_on;
     $this->updated_on = $data->updated_on;
-    $this->author = $data->author;
     $this->text = $data->text;
     $this->comments = $data->comments;
+
+    // Load the user object.
+    $this->author = $this->project->redmine->loadUser($data->author['id']);
 
     if (isset($data->parent)) {
       $this->parent = (object) $data->parent;
@@ -87,7 +97,7 @@ class WikiPageVersion {
       }
     }
 
-    return new WikiPage($data);
+    return new WikiPage($this->project, $data);
   }
 
   /**
@@ -109,5 +119,4 @@ class WikiPageVersion {
       }
     }
   }
-
 }
