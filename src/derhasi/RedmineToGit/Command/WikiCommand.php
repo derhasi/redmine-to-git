@@ -117,12 +117,13 @@ class WikiCommand extends Command
    */
   protected function initGit(InputInterface $input, OutputInterface $output) {
     // Init repo.
-    $git = new \PHPGit\Git();
-    $git->setRepository($this->repo);
+    $this->git = new \PHPGit\Git();
+    // @todo: option to init repo.
+    $this->git->setRepository($this->repo);
 
     // Validate repo, by checking status.
     try {
-      $git->status();
+      $this->git->status();
     }
       // When there is a git excpetion we are likely to have no repo there.
     catch (\PHPGit\Exception\GitException $e) {
@@ -207,13 +208,59 @@ class WikiCommand extends Command
    */
   protected function updateGitRepo(InputInterface $input, OutputInterface $output) {
 
+    $output->writeln("<info>Committing changes ...</info>");
+
+    // @todo: option to stash current repo changes?
+    // @todo: only process newer versions (compare with currently stored index)
+
     foreach ($this->wikiVersions as $vid => $version) {
 
-      // @todo: Add / update file in working directory
-      // @todo: Add commit message with author information and correct date
+      // Add / update file in working directory
+      $filename = $version['title'] . '.textile';
+      $filepath = $this->repo . '/' . $version['title'] . '.textile';
+      file_put_contents($filepath, $version['text']);
+
+      // Add commit message with author information and correct date
+      $this->git->add($filename);
+
+      // @todo: update index on each commit.
+
+      // Build commit message.
+      if ($version['version'] == 1) {
+        $message = "Created page {$version['title']} by {$version['author']['name']}";
+      }
+      else {
+        $message = "Updated page {$version['title']} by {$version['author']['name']}";
+      }
+
+      $author_id = $version['author']['id'];
+      if ($this->wikiUsers[$author_id]) {
+        $author = $version['author']['name'] . ' <' . $this->wikiUsers[$author_id]['mail'] . '>';
+      }
+      else {
+        $author = $version['author']['name'];
+      }
+
+      // @todo: check status before committing, to avoid empty commits.
+
+      $this->git->commit($message, array(
+        'author' => $author,
+        'date' => $version['updated_on'],
+      ));
+
+      // Write status.
+      $output->writeln("<comment>$message</comment>");
+
       // @todo: handling comments?
 
     }
+
+    // Add the index.json as reference.
+    $index = json_encode($this->wikiPages, JSON_PRETTY_PRINT);
+    file_put_contents($this->repo . '/index.json', $index);
+    $this->git->add('index.json');
+    $this->git->commit('Updated index');
+    $output->writeln("<comment>Updated index</comment>");
 
   }
 
