@@ -37,6 +37,11 @@ class WikiCommand extends Command
   var $git;
 
   /**
+   * @var \derhasi\RedmineToGit\WikiIndex
+   */
+  var $wikiIndex;
+
+  /**
    * @var array
    */
   var $wikiPages = array();
@@ -215,8 +220,9 @@ class WikiCommand extends Command
     // @todo: option to stash current repo changes?
     // @todo: only process newer versions (compare with currently stored index)
 
-    foreach ($this->wikiVersions as $vid => $version) {
-      // @todo: update index on each commit.
+    $this->wikiIndex = WikiIndex::loadFromJSONFile($this->repo . '/index.json');
+
+    foreach ($this->wikiVersions as $version) {
 
       // Add / update file in working directory
       $filename = $version->title . '.textile';
@@ -226,6 +232,10 @@ class WikiCommand extends Command
       // Add commit message with author information and correct date
       $this->git->add($filename);
 
+      // Update index on each commit.
+      $this->wikiIndex->updateWithVersion($version);
+      $this->wikiIndex->saveToJSONFile($this->repo . '/index.json');
+      $this->git->add('index.json');
 
       // Build commit message.
       if ($version->version == 1) {
@@ -246,14 +256,15 @@ class WikiCommand extends Command
       // @todo: check status before committing, to avoid empty commits.
       $this->git->commit($message, array(
         'author' => $author,
+        'date' => $version->updated_on,
+      ));
 
-    // Add the index.json as reference.
-    $index = json_encode($this->wikiPages, JSON_PRETTY_PRINT);
-    file_put_contents($this->repo . '/index.json', $index);
-    $this->git->add('index.json');
-    $this->git->commit('Updated index');
-    $output->writeln("<comment>Updated index</comment>");
+      // Write status.
+      $output->writeln("<comment>$message</comment>");
 
+      // @todo: handling comments?
+
+    }
   }
 
 }
