@@ -38,7 +38,7 @@ class User {
     }
 
     $this->id = $data->id;
-    $this->name = $data->name;
+    $this->name = $data->firstname . ' ' . $data->lastname;
     $this->mail = $data->mail;
   }
 
