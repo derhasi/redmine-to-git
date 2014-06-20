@@ -32,7 +32,7 @@ class Project {
     $return = array();
     $wiki_pages = $this->redmine->client->api('wiki')->all($this->project);
 
-    if (empty($wiki_pages['wiki_pages'])) {
+    if (!empty($wiki_pages['wiki_pages'])) {
       foreach ($wiki_pages['wiki_pages'] as $page) {
         $return[] = new WikiPage($this, $page);
       }
