@@ -2,7 +2,7 @@
 
 namespace derhasi\RedmineToGit;
 
-class WikiPage {
+class WikiPage implements \JsonSerializable {
 
   /**
    * @var Project
@@ -99,4 +99,24 @@ class WikiPage {
       return new WikiPageVersion($this->project, $version['wiki_page']);
     }
   }
+
+  /**
+   * Implements JsonSerializable::jsonSerialize().
+   */
+  public function jsonSerialize() {
+
+    $return = array(
+      'title' => $this->title,
+      'version' => $this->version,
+      'created_on' => $this->created_on,
+      'updated_on' => $this->updated_on,
+    );
+
+    if (isset($this->parent)) {
+      $return['parent'] = $this->parent;
+    }
+
+    return $return;
+  }
+
 }

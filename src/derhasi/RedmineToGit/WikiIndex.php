@@ -7,7 +7,7 @@ namespace derhasi\RedmineToGit;
  *
  * Representing page index of a redmine project.
  */
-class WikiIndex {
+class WikiIndex implements \JsonSerializable {
 
   /**
    * @var Project
@@ -110,8 +110,16 @@ class WikiIndex {
   public function saveToJSONFile($filepath) {
     // Make sure index is sorted.
     $this->sort();
-    $json = json_encode(array_values($this->data), JSON_PRETTY_PRINT);
+    $data = array_values($this->data);
+    $json = json_encode($data, JSON_PRETTY_PRINT);
     file_put_contents($filepath, $json);
+  }
+
+  /**
+   * Implements JsonSerializable::jsonSerialize().
+   */
+  public function jsonSerialize() {
+    return $this->data;
   }
 
 }
