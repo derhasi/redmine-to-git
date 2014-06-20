@@ -196,6 +196,8 @@ class WikiCommand extends Command
 
     $output->writeln("<info>Committing changes ...</info>");
 
+    $changes = FALSE;
+
     // @todo: option to stash current repo changes?
     foreach ($this->wikiVersions as $version) {
 
@@ -214,6 +216,7 @@ class WikiCommand extends Command
 
       // Only really commit if there are changes to commit.
       if ($this->git->hasStagedChanges()) {
+        $changes++;
 
         // Build commit message.
         if ($version->version == 1) {
@@ -236,6 +239,10 @@ class WikiCommand extends Command
       // @todo: handling comments?
       // @todo: handling documents?
 
+    }
+
+    if (empty($changes)) {
+      $output->writeln("<comment>There were no changes to commit.</comment>");
     }
   }
 
