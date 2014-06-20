@@ -32,7 +32,7 @@ class RedmineConnection {
       $user = $this->client->api('user')->show($id);
 
       if (!empty($user['user'])) {
-        $this->users[$id] = new User($user['user']);
+        $this->users[$id] = new User($this, $user['user']);
       }
     }
 
