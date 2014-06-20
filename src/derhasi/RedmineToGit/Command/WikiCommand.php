@@ -2,6 +2,7 @@
 
 namespace derhasi\RedmineToGit\Command;
 
+use \derhasi\RedmineToGit\Git;
 use \derhasi\RedmineToGit\RedmineConnection;
 use \derhasi\RedmineToGit\Project;
 use \derhasi\RedmineToGit\WikiIndex;
@@ -35,7 +36,7 @@ class WikiCommand extends Command
   var $repo;
 
   /**
-   * @var \PHPGit\Git
+   * @var \derhasi\RedmineToGit\Git
    */
   var $git;
 
@@ -131,7 +132,7 @@ class WikiCommand extends Command
    */
   protected function initGit(InputInterface $input, OutputInterface $output) {
     // Init repo.
-    $this->git = new \PHPGit\Git();
+    $this->git = new \derhasi\RedmineToGit\Git();
     // @todo: option to init repo.
     $this->git->setRepository($this->repo);
 
@@ -166,7 +167,7 @@ class WikiCommand extends Command
       $current_version = $page->version;
       $index_version = $this->wikiIndex->getVersionID($page);
 
-      // Skip page, if
+      // Only get Versions, that are not in the current git index.
       if ($current_version > $index_version) {
         $versions = $page->getVersions($index_version + 1, $current_version);
         foreach ($versions as $version) {
@@ -196,8 +197,6 @@ class WikiCommand extends Command
     $output->writeln("<info>Committing changes ...</info>");
 
     // @todo: option to stash current repo changes?
-    // @todo: only process newer versions (compare with currently stored index)
-
     foreach ($this->wikiVersions as $version) {
 
       // Add / update file in working directory
@@ -213,25 +212,29 @@ class WikiCommand extends Command
       $this->wikiIndex->saveToJSONFile($this->repo . '/index.json');
       $this->git->add('index.json');
 
-      // Build commit message.
-      if ($version->version == 1) {
-        $message = "Created page {$version->title} by {$version->author['name']}";
+      // Only really commit if there are changes to commit.
+      if ($this->git->hasStagedChanges()) {
+
+        // Build commit message.
+        if ($version->version == 1) {
+          $message = "Created page {$version->title} by {$version->author->name}";
+        }
+        else {
+          $message = "Updated page {$version->title} by {$version->author->name}";
+        }
+
+        // @todo: check status before committing, to avoid empty commits.
+        $this->git->commit($message, array(
+          'author' => $version->author->getGitAuthorName(),
+          'date' => $version->updated_on,
+        ));
+
+        // Write status.
+        $output->writeln("<comment>$message</comment>");
       }
-      else {
-        $message = "Updated page {$version->title} by {$version->author['name']}";
-      }
-
-
-      // @todo: check status before committing, to avoid empty commits.
-      $this->git->commit($message, array(
-        'author' => $version->author->getGitAuthorName(),
-        'date' => $version->updated_on,
-      ));
-
-      // Write status.
-      $output->writeln("<comment>$message</comment>");
 
       // @todo: handling comments?
+      // @todo: handling documents?
 
     }
   }
