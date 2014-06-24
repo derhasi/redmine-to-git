@@ -36,6 +36,11 @@ class WikiCommand extends Command
   var $repo;
 
   /**
+   * @var string
+   */
+  var $subdir;
+
+  /**
    * @var \derhasi\RedmineToGit\Git
    */
   var $git;
@@ -83,6 +88,13 @@ class WikiCommand extends Command
         InputArgument::REQUIRED,
         'The path to the git repo working directory'
       )
+      ->addOption(
+        'subdir',
+        NULL,
+        InputOption::VALUE_REQUIRED,
+        'Subdirectory within the git repo to store the wiki pages',
+        ''
+      )
     ;
   }
 
@@ -96,6 +108,7 @@ class WikiCommand extends Command
     $apikey = $input->getArgument('apikey');
     $project = $input->getArgument('project');
     $this->repo = $input->getArgument('repo');
+    $this->subdir = trim($input->getOption('subdir'), '/');
 
     // Init redmine client and get wiki pages information.
     $this->redmine = new RedmineConnection($redmine, $apikey);
@@ -284,15 +297,31 @@ class WikiCommand extends Command
    * @param WikiPageVersion $version
    */
   protected function updateFilesForVersion($version) {
+
+    $path = $this->getPageFilePath($version);
+    // Make sure the path exists.
+    $dir = dirname($path);
+    if (!is_dir($dir)) {
+      mkdir($dir, 0777, TRUE);
+    }
+
     // Add / update file in working directory with version content.
-    file_put_contents($this->getPageFilePath($version), $version->text);
+    file_put_contents($path, $version->text);
 
     // Add commit message with author information and correct date
     $this->git->add($this->getPageGitPath($version));
 
     // Update index on each commit.
     $this->wikiIndex->updateWithVersion($version);
-    $this->wikiIndex->saveToJSONFile($this->getIndexFilePath());
+
+    $indexfile = $this->getIndexFilePath();
+    // Make sure the index file can be created.
+    $indexdir = dirname($indexfile);
+    if (!is_dir($indexdir)) {
+      mkdir($indexdir, 0777, TRUE);
+    }
+
+    $this->wikiIndex->saveToJSONFile($indexfile);
     $this->git->add($this->getIndexGitPath());
   }
 
@@ -304,6 +333,10 @@ class WikiCommand extends Command
    * @return string
    */
   protected function getFilePath($path) {
+    if (strlen($this->subdir)) {
+      return $this->repo . '/' . $this->subdir . '/' . $path;
+    }
+
     return $this->repo . '/' . $path;
   }
 
@@ -315,6 +348,9 @@ class WikiCommand extends Command
    * @return mixed
    */
   protected function getGitPath($path) {
+    if (strlen($this->subdir)) {
+      return $this->subdir . '/' . $path;
+    }
     return $path;
   }
 
