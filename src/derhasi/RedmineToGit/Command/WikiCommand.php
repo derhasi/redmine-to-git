@@ -111,7 +111,7 @@ class WikiCommand extends Command
     }
 
     // Get the wiki index status from the file stored in the repo.
-    $this->wikiIndex = WikiIndex::loadFromJSONFile($this->project, $this->indexFilePath());
+    $this->wikiIndex = WikiIndex::loadFromJSONFile($this->project, $this->getIndexFilePath());
 
     // Calculating the wiki page, versions, that are needed to be added to the
     // repo.
@@ -201,18 +201,8 @@ class WikiCommand extends Command
     // @todo: option to stash current repo changes?
     foreach ($this->wikiVersions as $version) {
 
-      // Add / update file in working directory
-      $filename = $version->title . '.textile';
-      $filepath = $this->repo . '/' . $version->title . '.textile';
-      file_put_contents($filepath, $version->text);
-
-      // Add commit message with author information and correct date
-      $this->git->add($filename);
-
-      // Update index on each commit.
-      $this->wikiIndex->updateWithVersion($version);
-      $this->wikiIndex->saveToJSONFile($this->indexFilePath());
-      $this->git->add($this->indexGitPath());
+      // Perform any changes in the filesystem for the given version.
+      $this->updateFilesForVersion($version);
 
       // Only really commit if there are changes to commit.
       if ($this->git->hasStagedChanges()) {
@@ -251,17 +241,81 @@ class WikiCommand extends Command
    *
    * @return string
    */
-  protected function indexFilePath() {
-    return $this->repo . '/index.wiki.json';
+  protected function getIndexFilePath() {
+    return $this->getFilePath('index.wiki.json');
   }
 
   /**
    * Helper to get the filepath relative to the repository.
-   * 
+   *
    * @return string
    */
-  protected function indexGitPath() {
-    return 'index.wiki.json';
+  protected function getIndexGitPath() {
+    return $this->getGitPath('index.wiki.json');
+  }
+
+
+  /**
+   * Helper to get filepath in the filesystem for the given version page.
+   *
+   * @param WikiPageVersion $version
+   *
+   * @return string
+   */
+  protected function getPageFilePath($version) {
+    return $this->getFilePath($version->title . '.textile');
+
+  }
+
+  /**
+   * Helper to get filepath relative to the repo for the given version page.
+   *
+   * @param $version
+   *
+   * @return string
+   */
+  protected function getPageGitPath($version) {
+    return $this->getGitPath($version->title . '.textile');
+  }
+
+  /**
+   * Update files for the given version.
+   *
+   * @param WikiPageVersion $version
+   */
+  protected function updateFilesForVersion($version) {
+    // Add / update file in working directory with version content.
+    file_put_contents($this->getPageFilePath($version), $version->text);
+
+    // Add commit message with author information and correct date
+    $this->git->add($this->getPageGitPath($version));
+
+    // Update index on each commit.
+    $this->wikiIndex->updateWithVersion($version);
+    $this->wikiIndex->saveToJSONFile($this->getIndexFilePath());
+    $this->git->add($this->getIndexGitPath());
+  }
+
+  /**
+   * Helper for transforming a relative path to the filesystem path.
+   *
+   * @param $path
+   *
+   * @return string
+   */
+  protected function getFilePath($path) {
+    return $this->repo . '/' . $path;
+  }
+
+  /**
+   * Helper for transforming a relative path to the git relative path.
+   *
+   * @param $path
+   *
+   * @return mixed
+   */
+  protected function getGitPath($path) {
+    return $path;
   }
 
 }
