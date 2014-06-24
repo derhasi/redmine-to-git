@@ -111,7 +111,7 @@ class WikiCommand extends Command
     }
 
     // Get the wiki index status from the file stored in the repo.
-    $this->wikiIndex = WikiIndex::loadFromJSONFile($this->project, $this->repo . '/index.json');
+    $this->wikiIndex = WikiIndex::loadFromJSONFile($this->project, $this->indexFilePath());
 
     // Calculating the wiki page, versions, that are needed to be added to the
     // repo.
@@ -211,8 +211,8 @@ class WikiCommand extends Command
 
       // Update index on each commit.
       $this->wikiIndex->updateWithVersion($version);
-      $this->wikiIndex->saveToJSONFile($this->repo . '/index.json');
-      $this->git->add('index.json');
+      $this->wikiIndex->saveToJSONFile($this->indexFilePath());
+      $this->git->add($this->indexGitPath());
 
       // Only really commit if there are changes to commit.
       if ($this->git->hasStagedChanges()) {
@@ -244,6 +244,24 @@ class WikiCommand extends Command
     if (empty($changes)) {
       $output->writeln("<comment>There were no changes to commit.</comment>");
     }
+  }
+
+  /**
+   * Helper for getting filesystem path of the index file.
+   *
+   * @return string
+   */
+  protected function indexFilePath() {
+    return $this->repo . '/index.wiki.json';
+  }
+
+  /**
+   * Helper to get the filepath relative to the repository.
+   * 
+   * @return string
+   */
+  protected function indexGitPath() {
+    return 'index.wiki.json';
   }
 
 }
