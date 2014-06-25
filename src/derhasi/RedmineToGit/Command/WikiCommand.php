@@ -109,6 +109,9 @@ class WikiCommand extends Command
     $apikey = $input->getArgument('apikey');
     $project = $input->getArgument('project');
 
+    $output->writeln("<info>PROJECT: $project</info>");
+    $output->writeln('<info>' . str_repeat("=", strlen($project) + 9) . '</info>');
+
     // Init redmine client and get wiki pages information.
     $this->redmine = new RedmineConnection($redmine, $apikey);
     $this->project = new Project($this->redmine, $project);
@@ -204,7 +207,7 @@ class WikiCommand extends Command
     $this->wikiVersions = array();
 
     // Show a progress bar for featching wiki page information.
-    $output->writeln('<info>Fetching wiki page information from API ...</info>');
+    $output->writeln("<info>Fetching wiki page information from API ...</info>");
     $progress = $this->getHelperSet()->get('progress');
     $progress->start($output, count($this->wikiPages));
 
@@ -262,7 +265,7 @@ class WikiCommand extends Command
           $message = "Updated page {$version->title} by {$version->author->name}";
         }
 
-        $commit_message = $message;
+        $commit_message = "{$this->project->project}: $message";
         $commit_message .= "\n Date: {$version->updated_on}";
 
         // If the version got some comments, we add that to the commit message.
