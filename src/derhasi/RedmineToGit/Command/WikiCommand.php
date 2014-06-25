@@ -229,7 +229,6 @@ class WikiCommand extends Command
           $message = "Updated page {$version->title} by {$version->author->name}";
         }
 
-        // @todo: check status before committing, to avoid empty commits.
         $this->git->commit($message, array(
           'author' => $version->author->getGitAuthorName(),
           'date' => $version->updated_on,
