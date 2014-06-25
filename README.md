@@ -21,3 +21,9 @@ Currently the command is ...
 * **subdir**: optional subdirectory to put files and index to
 
 Type `php redmine-to-git.php help wiki` for additional information.
+
+## Help
+
+The project is hosted on [github](https://github.com/derhasi/redmine-to-git), so
+please file any issues or questions in the
+[Issue Queue](https://github.com/derhasi/redmine-to-git/issues).
