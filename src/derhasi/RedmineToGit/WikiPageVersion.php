@@ -144,7 +144,7 @@ class WikiPageVersion {
 
     // Get the wiki file path object relative to the
     $wikiFile = $base_path->resolve(
-      Path::fromString("{$this->title}.textile")
+      Path::fromString("{$this->title}.wiki.textile")
     );
 
     // Make sure the path exists.
