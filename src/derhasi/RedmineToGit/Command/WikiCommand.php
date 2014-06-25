@@ -262,7 +262,15 @@ class WikiCommand extends Command
           $message = "Updated page {$version->title} by {$version->author->name}";
         }
 
-        $this->git->commit($message, array(
+        $commit_message = $message;
+        $commit_message .= "\n Date: {$version->updated_on}";
+
+        // If the version got some comments, we add that to the commit message.
+        if (!empty($version->comments)) {
+          $commit_message .= "\n Message: {$version->comments}";
+        }
+
+        $this->git->commit($commit_message, array(
           'author' => $version->author->getGitAuthorName(),
           'date' => $version->updated_on,
         ));
