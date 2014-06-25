@@ -2,6 +2,8 @@
 
 namespace derhasi\RedmineToGit;
 
+use \Eloquent\Pathogen\Path;
+
 class WikiPageVersion {
 
   /**
@@ -50,6 +52,11 @@ class WikiPageVersion {
   var $comments;
 
   /**
+   * @var array
+   */
+  var $attachments = array();
+
+  /**
    * Constructor for the WikiPage object.
    *
    * @param Project $project
@@ -69,6 +76,10 @@ class WikiPageVersion {
     $this->updated_on = $data->updated_on;
     $this->text = $data->text;
     $this->comments = $data->comments;
+
+    if (isset($data->attachments)) {
+      $this->attachments = $data->attachments;
+    }
 
     // Load the user object.
     $this->author = $this->project->redmine->loadUser($data->author['id']);
@@ -119,4 +130,35 @@ class WikiPageVersion {
       }
     }
   }
+
+
+  /**
+   * Write representation of the page version to given
+   *
+   * @param \Eloquent\Pathogen\AbsolutePathInterface $base_path
+   *
+   * @return \Eloquent\Pathogen\AbsolutePathInterface[]
+   *   Array of path objects
+   */
+  public function writeFile($base_path) {
+
+    // Get the wiki file path object relative to the
+    $wikiFile = $base_path->resolve(
+      Path::fromString("{$this->title}.textile")
+    );
+
+    // Make sure the path exists.
+    $dir = dirname($wikiFile->string());
+    if (!is_dir($dir)) {
+      mkdir($dir, 0777, TRUE);
+    }
+
+    // Add / update file in working directory with version content.
+    file_put_contents($wikiFile->string(), $this->text);
+
+    return array(
+      $wikiFile,
+    );
+  }
+
 }

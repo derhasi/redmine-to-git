@@ -2,6 +2,8 @@
 
 namespace derhasi\RedmineToGit;
 
+use \Eloquent\Pathogen\Path;
+
 /**
  * Class WikiIndex
  *
@@ -81,16 +83,21 @@ class WikiIndex implements \JsonSerializable {
   /**
    * Load index object from file.
    *
-   * param Project $project
-   * @param string $filepath
+   * @param Project $project
+   * @param \Eloquent\Pathogen\AbsolutePathInterface $base_path
    *
    * @return WikiIndex
    */
-  public static function loadFromJSONFile(Project $project, $filepath) {
+  public static function loadFromFile(Project $project, $base_path) {
     $data = array();
 
-    if (file_exists($filepath)) {
-      $str = file_get_contents($filepath);
+    // Get the wiki file path object relative to the
+    $indexFile = $base_path->resolve(
+      Path::fromString("index.wiki.json")
+    );
+
+    if (file_exists($indexFile->string())) {
+      $str = file_get_contents($indexFile->string());
       $raw_data = (object) json_decode($str);
 
       if (isset($raw_data->data)) {
@@ -112,13 +119,33 @@ class WikiIndex implements \JsonSerializable {
   }
 
   /**
-   * Save index to file as JSON.
+   * Write representation of the page version to given
    *
-   * @param string $filepath
+   * @param \Eloquent\Pathogen\AbsolutePathInterface $base_path
+   *
+   * @return \Eloquent\Pathogen\AbsolutePathInterface[]
+   *   Array of path objects that have been changed.
    */
-  public function saveToJSONFile($filepath) {
+  public function writeFile($base_path) {
+
+    // Get the wiki file path object relative to the
+    $indexFile = $base_path->resolve(
+      Path::fromString("index.wiki.json")
+    );
+
+    // Make sure the path exists.
+    $dir = dirname($indexFile->string());
+    if (!is_dir($dir)) {
+      mkdir($dir, 0777, TRUE);
+    }
+
+    // Write the json to the index File.
     $json = json_encode($this, JSON_PRETTY_PRINT);
-    file_put_contents($filepath, $json);
+    file_put_contents($indexFile->string(), $json);
+
+    return array(
+      $indexFile,
+    );
   }
 
   /**

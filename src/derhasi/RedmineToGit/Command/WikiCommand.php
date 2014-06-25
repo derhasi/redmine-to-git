@@ -8,6 +8,7 @@ use \derhasi\RedmineToGit\Project;
 use \derhasi\RedmineToGit\WikiIndex;
 use \derhasi\RedmineToGit\WikiPage;
 use \derhasi\RedmineToGit\WikiPageVersion;
+use \Eloquent\Pathogen\FileSystem\Factory\PlatformFileSystemPathFactory;
 use \Symfony\Component\Console\Command\Command;
 use \Symfony\Component\Console\Input\InputArgument;
 use \Symfony\Component\Console\Input\InputInterface;
@@ -31,14 +32,14 @@ class WikiCommand extends Command
   var $project;
 
   /**
-   * @var string
+   * @var \Eloquent\Pathogen\AbsolutePathInterface
    */
-  var $repo;
+  var $repoPath;
 
   /**
-   * @var string
+   * @var \Eloquent\Pathogen\AbsolutePathInterface
    */
-  var $subdir;
+  var $workingPath;
 
   /**
    * @var \derhasi\RedmineToGit\Git
@@ -107,12 +108,12 @@ class WikiCommand extends Command
     $redmine = $input->getArgument('redmine');
     $apikey = $input->getArgument('apikey');
     $project = $input->getArgument('project');
-    $this->repo = $input->getArgument('repo');
-    $this->subdir = trim($input->getOption('subdir'), '/');
 
     // Init redmine client and get wiki pages information.
     $this->redmine = new RedmineConnection($redmine, $apikey);
     $this->project = new Project($this->redmine, $project);
+
+    $this->initDirectories($input, $output);
 
     $success = $this->initGit($input, $output);
     if ($success === FALSE) return;
@@ -124,7 +125,7 @@ class WikiCommand extends Command
     }
 
     // Get the wiki index status from the file stored in the repo.
-    $this->wikiIndex = WikiIndex::loadFromJSONFile($this->project, $this->getIndexFilePath());
+    $this->wikiIndex = WikiIndex::loadFromFile($this->project, $this->workingPath);
 
     // Calculating the wiki page, versions, that are needed to be added to the
     // repo.
@@ -134,6 +135,38 @@ class WikiCommand extends Command
     $this->updateGitRepo($input, $output);
   }
 
+  /**
+   * Helper to initialize the directory variables.
+   *
+   * @param InputInterface $input
+   * @param OutputInterface $output
+   *
+   * @throws \ErrorException
+   */
+  protected function initDirectories(InputInterface $input, OutputInterface $output) {
+    // Pathogen working directory as reference for initial path calculation.
+    $factory = new PlatformFileSystemPathFactory;
+    $workingDirectoryPath = $factory->createWorkingDirectoryPath();
+
+    // Build repo root path object, relative to the current working directory.
+    $repo_path_input = $input->getArgument('repo');
+    $this->repoPath = $workingDirectoryPath->resolve(
+      $factory->create($repo_path_input)
+    );
+
+    // Get the new working directory from the --subdir option.
+    $subdir_input = $input->getOption('subdir');
+    $this->workingPath = $this->repoPath->resolve(
+      $factory->create($subdir_input)
+    );
+
+    // If the working directory is not in or is not the repository's directory
+    // we cannot proceed.
+    if (!$this->repoPath->isAncestorOf($this->workingPath) && $this->repoPath->string() != $this->workingPath->string()) {
+      throw new \ErrorException('The subdirectory has to be located in the repository');
+    }
+
+  }
 
   /**
    * Helper to initialie the repo.
@@ -147,7 +180,7 @@ class WikiCommand extends Command
     // Init repo.
     $this->git = new \derhasi\RedmineToGit\Git();
     // @todo: option to init repo.
-    $this->git->setRepository($this->repo);
+    $this->git->setRepository($this->repoPath->string());
 
     // Validate repo, by checking status.
     try {
@@ -155,7 +188,7 @@ class WikiCommand extends Command
     }
       // When there is a git excpetion we are likely to have no repo there.
     catch (\PHPGit\Exception\GitException $e) {
-      $output->writeln("<error>{$this->repo} is no valid git repo.</error>");
+      $output->writeln("<error>{$this->repoPath->string()} is no valid git repo.</error>");
       return FALSE;
     }
   }
@@ -249,108 +282,27 @@ class WikiCommand extends Command
   }
 
   /**
-   * Helper for getting filesystem path of the index file.
-   *
-   * @return string
-   */
-  protected function getIndexFilePath() {
-    return $this->getFilePath('index.wiki.json');
-  }
-
-  /**
-   * Helper to get the filepath relative to the repository.
-   *
-   * @return string
-   */
-  protected function getIndexGitPath() {
-    return $this->getGitPath('index.wiki.json');
-  }
-
-
-  /**
-   * Helper to get filepath in the filesystem for the given version page.
-   *
-   * @param WikiPageVersion $version
-   *
-   * @return string
-   */
-  protected function getPageFilePath($version) {
-    return $this->getFilePath($version->title . '.textile');
-
-  }
-
-  /**
-   * Helper to get filepath relative to the repo for the given version page.
-   *
-   * @param $version
-   *
-   * @return string
-   */
-  protected function getPageGitPath($version) {
-    return $this->getGitPath($version->title . '.textile');
-  }
-
-  /**
    * Update files for the given version.
    *
    * @param WikiPageVersion $version
    */
   protected function updateFilesForVersion($version) {
 
-    $path = $this->getPageFilePath($version);
-    // Make sure the path exists.
-    $dir = dirname($path);
-    if (!is_dir($dir)) {
-      mkdir($dir, 0777, TRUE);
-    }
-
-    // Add / update file in working directory with version content.
-    file_put_contents($path, $version->text);
-
-    // Add commit message with author information and correct date
-    $this->git->add($this->getPageGitPath($version));
+    // Update some files.
+    $updated_files = array();
+    $updated_files += $version->writeFile($this->workingPath);
 
     // Update index on each commit.
     $this->wikiIndex->updateWithVersion($version);
+    $updated_files += $this->wikiIndex->writeFile($this->workingPath);
 
-    $indexfile = $this->getIndexFilePath();
-    // Make sure the index file can be created.
-    $indexdir = dirname($indexfile);
-    if (!is_dir($indexdir)) {
-      mkdir($indexdir, 0777, TRUE);
+    // Add commit message with author information and correct date
+    foreach ($updated_files as $file) {
+      $this->git->add(
+        $file->relativeTo($this->repoPath)->string()
+      );
     }
 
-    $this->wikiIndex->saveToJSONFile($indexfile);
-    $this->git->add($this->getIndexGitPath());
+
   }
-
-  /**
-   * Helper for transforming a relative path to the filesystem path.
-   *
-   * @param $path
-   *
-   * @return string
-   */
-  protected function getFilePath($path) {
-    if (strlen($this->subdir)) {
-      return $this->repo . '/' . $this->subdir . '/' . $path;
-    }
-
-    return $this->repo . '/' . $path;
-  }
-
-  /**
-   * Helper for transforming a relative path to the git relative path.
-   *
-   * @param $path
-   *
-   * @return mixed
-   */
-  protected function getGitPath($path) {
-    if (strlen($this->subdir)) {
-      return $this->subdir . '/' . $path;
-    }
-    return $path;
-  }
-
 }
