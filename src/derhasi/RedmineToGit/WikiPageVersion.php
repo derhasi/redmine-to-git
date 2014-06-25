@@ -142,7 +142,7 @@ class WikiPageVersion {
    */
   public function writeFile($base_path) {
 
-    // Get the wiki file path object relative to the
+    // Get the wiki file path object relative to the base path.
     $wikiFile = $base_path->resolve(
       Path::fromString("{$this->title}.wiki.textile")
     );

@@ -289,15 +289,14 @@ class WikiCommand extends Command
   protected function updateFilesForVersion($version) {
 
     // Update some files.
-    $updated_files = array();
-    $updated_files += $version->writeFile($this->workingPath);
+    $version_files = $version->writeFile($this->workingPath);
 
     // Update index on each commit.
     $this->wikiIndex->updateWithVersion($version);
-    $updated_files += $this->wikiIndex->writeFile($this->workingPath);
+    $index_files = $this->wikiIndex->writeFile($this->workingPath);
 
     // Add commit message with author information and correct date
-    foreach ($updated_files as $file) {
+    foreach (array_merge($version_files, $index_files) as $file) {
       $this->git->add(
         $file->relativeTo($this->repoPath)->string()
       );
