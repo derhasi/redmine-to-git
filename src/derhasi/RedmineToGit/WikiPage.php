@@ -35,6 +35,11 @@ class WikiPage implements \JsonSerializable {
   var $updated_on;
 
   /**
+   * @var array;
+   */
+  var $attachments;
+
+  /**
    * Constructor for the WikiPage object.
    *
    * @param array|object $data
@@ -54,6 +59,9 @@ class WikiPage implements \JsonSerializable {
 
     if (isset($data->parent)) {
       $this->parent = (object) $data->parent;
+    }
+    if (isset($data->attachments)) {
+      $this->attachments = (object) $data->attachments;
     }
   }
 
@@ -114,6 +122,10 @@ class WikiPage implements \JsonSerializable {
 
     if (isset($this->parent)) {
       $return['parent'] = $this->parent;
+    }
+
+    if (isset($this->attachments)) {
+      $return['attachments'] = $this->attachments;
     }
 
     return $return;

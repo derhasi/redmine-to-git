@@ -98,7 +98,7 @@ class WikiPageVersion {
 
     // Add/Update page properties for the given keys.
     $keys = array(
-      'title', 'created_on', 'updated_on', 'version', 'parent'
+      'title', 'created_on', 'updated_on', 'version', 'parent', 'attachments',
     );
 
     $data = array();
