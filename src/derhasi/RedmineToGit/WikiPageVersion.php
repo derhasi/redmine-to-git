@@ -2,6 +2,8 @@
 
 namespace derhasi\RedmineToGit;
 
+use \GuzzleHttp\Client;
+use \GuzzleHttp\Stream\Stream;
 use \Eloquent\Pathogen\Path;
 
 class WikiPageVersion {
@@ -161,4 +163,76 @@ class WikiPageVersion {
     );
   }
 
+  /**
+   * Writes attachments to the local storage.
+   *
+   * @param \Eloquent\Pathogen\AbsolutePathInterface $base_path
+   * @param int $max_file_size
+   * @param \Symfony\Component\Console\Output\OutputInterface $output;
+   * @param \Symfony\Component\Console\Helper\ProgressHelper $progress;
+   *
+   * @return \Eloquent\Pathogen\AbsolutePathInterface[]
+   *   Array of path objects
+   */
+  public function writeAttachments($base_path, $max_file_size, $output, $progress) {
+    $files = array();
+
+    // Quit if we got no attachments at all.
+    if (empty($this->attachments)) {
+      return array();
+    }
+    // First check the files we really need to download.
+    $attachments = array();
+
+    $attachments_folder = $base_path->resolve(Path::fromString('attachments'));
+    foreach ($this->attachments as $attachment) {
+      $attachment_local_path = $attachments_folder->resolve(Path::fromString($attachment['id'] . '-' . $attachment['filename']));
+
+      // As Redmine cannot change uploaded files, we do not try to download
+      // those again.
+      // Additionally we ignore files that are too big.
+      if ( ($max_file_size == 0 || $attachment['filesize'] <= $max_file_size)
+        && !file_exists($attachment_local_path->string())) {
+        $attachments[$attachment['content_url']] = $attachment_local_path;
+      }
+    }
+
+    // Quit of we got no new attachments.
+    if (empty($attachments)) {
+      return array();
+    }
+
+    $output->writeln("<comment>Downloading attachments for {$this->title} ...</comment>");
+    $progress->start($output, count($attachments));
+    $progress->advance(0);
+
+    $client = new Client([
+      'base_url' => $this->project->redmine->url,
+      'defaults' => [
+        'auth' => [$this->project->redmine->apikey, 'password'],
+      ]
+    ]);
+
+    // Make sure the attachments folder is created.
+    if (!file_exists($attachments_folder->string())) {
+      @mkdir($attachments_folder->string());
+    }
+
+    foreach ($attachments as $attachment_url => $attachment_local_path) {
+
+      $save_stream = Stream::factory(fopen($attachment_local_path->string(), 'w'));
+      $client->get($attachment_url,
+        ['save_to' => $save_stream]
+      );
+
+      // Add file to the changed files, so they can get commited.
+      $files[] = $attachment_local_path;
+
+      $progress->advance();
+    }
+
+    $progress->finish();
+
+    return $files;
+  }
 }

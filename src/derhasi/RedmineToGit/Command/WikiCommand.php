@@ -106,6 +106,13 @@ class WikiCommand extends Command
         'Subdirectory within the git repo to store the wiki pages',
         ''
       )
+      ->addOption(
+        'maxFilesize',
+        NULL,
+        InputOption::VALUE_REQUIRED,
+        'Maximum filesize for attachments in bytes',
+        '0'
+      )
     ;
   }
 
@@ -302,12 +309,23 @@ class WikiCommand extends Command
     // Update some files.
     $version_files = $version->writeFile($this->workingPath);
 
+    $max_file_size = (int) $this->currentInput->getOption('maxFilesize');
+
+    // Download attachments. As this may take longer, we need a progress to
+    // to update.
+    $attachment_files = $version->writeAttachments(
+      $this->workingPath,
+      $max_file_size,
+      $this->currentOutput,
+      $this->getHelperSet()->get('progress')
+    );
+
     // Update index on each commit.
     $this->wikiIndex->updateWithVersion($version);
     $index_files = $this->wikiIndex->writeFile($this->workingPath);
 
     // Add commit message with author information and correct date
-    foreach (array_merge($version_files, $index_files) as $file) {
+    foreach (array_merge($version_files, $attachment_files, $index_files) as $file) {
       $this->git->add(
         $file->relativeTo($this->repoPath)->string()
       );
