@@ -10,6 +10,16 @@ class RedmineConnection {
   var $client;
 
   /**
+   * @var string
+   */
+  var $url;
+
+  /**
+   * @var string
+   */
+  var $apikey;
+
+  /**
    * @var array
    */
   var $users;
@@ -19,6 +29,8 @@ class RedmineConnection {
    * @param string $apikey
    */
   public function __construct($url, $apikey) {
+    $this->url = $url;
+    $this->apikey = $apikey;
     $this->client = new \Redmine\Client($url, $apikey);
   }
 
