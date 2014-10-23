@@ -62,6 +62,16 @@ class WikiCommand extends Command
   var $wikiVersions = array();
 
   /**
+   * @var \Symfony\Component\Console\Input\InputInterface;
+   */
+  var $currentInput;
+
+  /**
+   * @var \Symfony\Component\Console\Output\OutputInterface;
+   */
+  var $currentOutput;
+
+  /**
    * {@inheritdoc}
    */
   protected function configure()
@@ -102,28 +112,30 @@ class WikiCommand extends Command
   /**
    * {@inheritdoc}
    */
-  protected function execute(InputInterface $input, OutputInterface $output)
-  {
-    // Get our necessary arguments from the input.
-    $redmine = $input->getArgument('redmine');
-    $apikey = $input->getArgument('apikey');
-    $project = $input->getArgument('project');
+  protected function execute(InputInterface $input, OutputInterface $output) {
+    $this->currentInput = $input;
+    $this->currentOutput = $output;
 
-    $output->writeln("<info>PROJECT: $project</info>");
-    $output->writeln('<info>' . str_repeat("=", strlen($project) + 9) . '</info>');
+    // Get our necessary arguments from the input.
+    $redmine = $this->currentInput->getArgument('redmine');
+    $apikey = $this->currentInput->getArgument('apikey');
+    $project = $this->currentInput->getArgument('project');
+
+    $this->currentOutput->writeln("<info>PROJECT: $project</info>");
+    $this->currentOutput->writeln('<info>' . str_repeat("=", strlen($project) + 9) . '</info>');
 
     // Init redmine client and get wiki pages information.
     $this->redmine = new RedmineConnection($redmine, $apikey);
     $this->project = new Project($this->redmine, $project);
 
-    $this->initDirectories($input, $output);
+    $this->initDirectories();
 
-    $success = $this->initGit($input, $output);
+    $success = $this->initGit();
     if ($success === FALSE) return;
 
     $this->wikiPages = $this->project->loadWikiPages();
     if (empty($this->wikiPages)) {
-      $output->writeln('<info>There are no wiki pages in the project.</info>');
+      $this->currentOutput->writeln('<info>There are no wiki pages in the project.</info>');
       return;
     }
 
@@ -132,33 +144,30 @@ class WikiCommand extends Command
 
     // Calculating the wiki page, versions, that are needed to be added to the
     // repo.
-    $this->buildWikiVersions($input, $output);
+    $this->buildWikiVersions();
 
     // And now there is the git part.
-    $this->updateGitRepo($input, $output);
+    $this->updateGitRepo();
   }
 
   /**
    * Helper to initialize the directory variables.
    *
-   * @param InputInterface $input
-   * @param OutputInterface $output
-   *
    * @throws \ErrorException
    */
-  protected function initDirectories(InputInterface $input, OutputInterface $output) {
+  protected function initDirectories() {
     // Pathogen working directory as reference for initial path calculation.
     $factory = new PlatformFileSystemPathFactory;
     $workingDirectoryPath = $factory->createWorkingDirectoryPath();
 
     // Build repo root path object, relative to the current working directory.
-    $repo_path_input = $input->getArgument('repo');
+    $repo_path_input = $this->currentInput->getArgument('repo');
     $this->repoPath = $workingDirectoryPath->resolve(
       $factory->create($repo_path_input)
     );
 
     // Get the new working directory from the --subdir option.
-    $subdir_input = $input->getOption('subdir');
+    $subdir_input = $this->currentInput->getOption('subdir');
     $this->workingPath = $this->repoPath->resolve(
       $factory->create($subdir_input)
     );
@@ -174,12 +183,9 @@ class WikiCommand extends Command
   /**
    * Helper to initialie the repo.
    *
-   * @param InputInterface $input
-   * @param OutputInterface $output
-   *
    * @return bool
    */
-  protected function initGit(InputInterface $input, OutputInterface $output) {
+  protected function initGit() {
     // Init repo.
     $this->git = new \derhasi\RedmineToGit\Git();
     // @todo: option to init repo.
@@ -191,25 +197,22 @@ class WikiCommand extends Command
     }
       // When there is a git excpetion we are likely to have no repo there.
     catch (\PHPGit\Exception\GitException $e) {
-      $output->writeln("<error>{$this->repoPath->string()} is no valid git repo.</error>");
+      $this->currentOutput->writeln("<error>{$this->repoPath->string()} is no valid git repo.</error>");
       return FALSE;
     }
   }
 
   /**
    * Helper to fill the wiki versions array.
-   *
-   * @param InputInterface $input
-   * @param OutputInterface $output
    */
-  protected function buildWikiVersions(InputInterface $input, OutputInterface $output) {
+  protected function buildWikiVersions() {
 
     $this->wikiVersions = array();
 
     // Show a progress bar for featching wiki page information.
-    $output->writeln("<info>Fetching wiki page information from API ...</info>");
+    $this->currentOutput->writeln("<info>Fetching wiki page information from API ...</info>");
     $progress = $this->getHelperSet()->get('progress');
-    $progress->start($output, count($this->wikiPages));
+    $progress->start($this->currentOutput, count($this->wikiPages));
 
     foreach ($this->wikiPages as $page) {
 
@@ -237,13 +240,10 @@ class WikiCommand extends Command
 
   /**
    * Helper to write the version information to the git repo.
-   *
-   * @param InputInterface $input
-   * @param OutputInterface $output
    */
-  protected function updateGitRepo(InputInterface $input, OutputInterface $output) {
+  protected function updateGitRepo() {
 
-    $output->writeln("<info>Committing changes ...</info>");
+    $this->currentOutput->writeln("<info>Committing changes ...</info>");
 
     $changes = FALSE;
 
@@ -279,7 +279,7 @@ class WikiCommand extends Command
         ));
 
         // Write status.
-        $output->writeln("<comment>$message</comment>");
+        $this->currentOutput->writeln("<comment>$message</comment>");
       }
 
       // @todo: handling comments?
@@ -288,7 +288,7 @@ class WikiCommand extends Command
     }
 
     if (empty($changes)) {
-      $output->writeln("<comment>There were no changes to commit.</comment>");
+      $this->currentOutput->writeln("<comment>There were no changes to commit.</comment>");
     }
   }
 
@@ -312,7 +312,6 @@ class WikiCommand extends Command
         $file->relativeTo($this->repoPath)->string()
       );
     }
-
 
   }
 }
