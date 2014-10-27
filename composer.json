@@ -3,7 +3,7 @@
   "description": "Push redmine data to a git repositry",
   "keywords": ["redmine"],
   "homepage": "http://github.com/derhasi/redmine-to-git",
-  "license": "MIT",
+  "license": "GPL-3.0",
   "authors": [
     {
       "name": "Johannes Haseitl",
