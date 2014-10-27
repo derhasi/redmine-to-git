@@ -12,6 +12,9 @@
       "role": "Developer"
     }
   ],
+  "support": {
+    "issues": "https://github.com/derhasi/redmine-to-git/issues"
+  },
   "require": {
     "php": ">=5.4.0",
     "kbsali/redmine-api": "1.5",
