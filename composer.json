@@ -15,6 +15,10 @@
   "support": {
     "issues": "https://github.com/derhasi/redmine-to-git/issues"
   },
+  "bin": [
+    "redmine-to-git",
+    "redmine-to-git.php"
+  ],
   "require": {
     "php": ">=5.4.0",
     "kbsali/redmine-api": "1.5",
