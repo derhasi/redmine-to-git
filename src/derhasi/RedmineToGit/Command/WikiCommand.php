@@ -113,6 +113,12 @@ class WikiCommand extends Command
         'Maximum filesize for attachments in bytes',
         '0'
       )
+      ->addOption(
+        'ensureAttachments',
+        NULL,
+        InputOption::VALUE_NONE,
+        'Makes sure the attachments from the current version are downloaded'
+      )
     ;
   }
 
@@ -216,6 +222,8 @@ class WikiCommand extends Command
 
     $this->wikiVersions = array();
 
+    $ensure_attachments = $this->currentInput->getOption('ensureAttachments');
+
     // Show a progress bar for featching wiki page information.
     $this->currentOutput->writeln("<info>Fetching wiki page information from API ...</info>");
     $progress = $this->getHelperSet()->get('progress');
@@ -233,6 +241,13 @@ class WikiCommand extends Command
           $key = $version->updated_on . '-' . $version->title . '-' . $version->version;
           $this->wikiVersions[$key] = $version;
         }
+      }
+      // In the case we want to ensure the attachments, we need to process the
+      // last version again.
+      elseif ($ensure_attachments && $current_version == $index_version) {
+        $version = $page->loadVersion($index_version);
+        $key = $version->updated_on . '-' . $version->title . '-' . $version->version;
+        $this->wikiVersions[$key] = $version;
       }
 
       // advances the progress bar 1 unit
