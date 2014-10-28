@@ -3,10 +3,24 @@
 This tool uses the [Redmine REST API](http://www.redmine.org/projects/redmine/wiki/Rest_api)
 for fetching data from a specific project and push that to a git repository.
 
+Currently only wiki pages are supported.
+
 ## Installation
 
-* Install [composer](https://getcomposer.org/)
-* Run `composer install` in this directory
+The installation is simple by using [composer](https://getcomposer.org/). After [installing composer](https://getcomposer.org/doc/00-intro.md) you can either install the command globally or within a project.
+
+### Global 
+
+In the global installation `redmine-to-git` will be available as a command line tool.
+
+* Run `composer global require derhasi/redmine-to-git` to install globally.
+* Add `export PATH=~/.composer/vendor/bin:$PATH` to your `.bashrc`or `.profile`
+
+After the installation you should be able to run `redmine-to-git wiki ...` from anywhere.
+
+### Local
+
+You can run `composer require derhasi/redmine-to-git` in any composer enabled project to add this project as a dependency.
 
 ## Usage
 
